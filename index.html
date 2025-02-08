@@ -119,7 +119,8 @@
                                 <button v-for="col in 12" :key="(row-1)*12 + col"
                                     @click="placeBet((row-1)*12 + col)"
                                     :class="[
-                                        'p-3 text-lg font-bold rounded',
+                                        'p-3 text-lg font-bold rounded', 
+                                        [2,4,6,7,8,10,11,13,15,17,19,20,22,24,26,28,29,31,33,35].includes((row-1)*12 + col) ? 'bg-gray-900 hover:bg-gray-800' :
                                         selectedNumber === (row-1)*12 + col ? 'bg-yellow-500 text-black' : 'bg-red-800 hover:bg-red-700'
                                     ]">
                                     {{ (row-1)*12 + col }}
@@ -177,3 +178,4 @@
     </div>
 </body>
 </html>
+
