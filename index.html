@@ -3,21 +3,232 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulación de Ruleta</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <div class="container">
-        <h1>Simulación de Ruleta</h1>
-        <form id="rouletteForm">
-            <label for="userNumber">Ingresa tu número (0-36):</label>
-            <input type="number" id="userNumber" min="0" max="36" required>
-            <button type="submit">Girar Ruleta</button>
-        </form>
-        
-        <div id="result"></div>
-    </div>
+    <title>Ruleta Virtual de Casino</title>
+    <meta name="description" content="Experimenta la emoción del casino con una ruleta virtual de apuestas. Gira la rueda y prueba tu suerte en este juego inmersivo.">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3.5.13/dist/vue.global.js"></script>
+    <script type="module">
+        import { SDK } from "https://webdraw.com/webdraw-sdk@v1";
 
-    <script src="script.js"></script>
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const sdk = SDK;
+                const loading = ref(false);
+                const balance = ref(1000);
+                const currentBet = ref(0);
+                const selectedNumber = ref(null);
+                const showWinAnimation = ref(false);
+                const result = ref(null);
+                const spinning = ref(false);
+                const wheelDeg = ref(0);
+                const metaImage = ref('');
+
+                onMounted(async () => {
+                    loading.value = true;
+                    try {
+                        const response = await sdk.fetch('https://webdraw.com/api/generate?task=image', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                model: "stability:ultra",
+                                prompt: "A realistic 3D rendering of a luxurious casino roulette wheel with golden details and rich red velvet, dramatic lighting, photorealistic style",
+                                providerOptions: { stability: {} }
+                            })
+                        });
+                        const data = safeJSONParse(response);
+                        if (data.images && data.images[0]) {
+                            metaImage.value = `data:image/png;base64,${data.images[0]}`;
+                            const metaTag = document.createElement('meta');
+                            metaTag.setAttribute('property', 'og:image');
+                            metaTag.content = metaImage.value;
+                            document.head.appendChild(metaTag);
+                        }
+                    } catch (error) {
+                        console.error('Error generating image:', error);
+                    } finally {
+                        loading.value = false;
+                    }
+                });
+
+                const placeBet = (number) => {
+                    if (currentBet.value <= balance.value && !spinning.value) {
+                        selectedNumber.value = number;
+                    }
+                };
+
+                const spin = async () => {
+                    if (!selectedNumber.value) {
+                        alert('Por favor selecciona un número antes de girar');
+                        return;
+                    }
+                    if (currentBet.value > 0 && currentBet.value <= balance.value && !spinning.value && selectedNumber.value !== null) {
+                        spinning.value = true;
+                        balance.value -= currentBet.value;
+                        
+                        // Random result
+                        const randomNumber = Math.floor(Math.random() * 37);
+                        const newDegrees = wheelDeg.value + (360 * 5) + (randomNumber * (360/37));
+                        wheelDeg.value = newDegrees;
+                        
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                        
+                        result.value = randomNumber;
+                        
+                        // Check win
+                        if (selectedNumber.value === randomNumber) {
+                            balance.value += currentBet.value * 35;
+                            showWinAnimation.value = true;
+                            setTimeout(() => {
+                                showWinAnimation.value = false;
+                            }, 3000);
+                            
+                        }
+                        
+                        spinning.value = false;
+                    }
+                };
+
+                const safeJSONParse = (response) => {
+                    if (response.status < 400 && response.status >= 200) {
+                        return JSON.parse(response.body);
+                    }
+                    const error = typeof response.body === "string" ? { message: response.body } : response.body;
+                    throw error;
+                };
+
+                return {
+                    balance,
+                    currentBet,
+                    selectedNumber,
+                    result,
+                    spinning,
+                    showWinAnimation,
+                    wheelDeg,
+                    loading,
+                    placeBet,
+                    spin
+                };
+            }
+        }).mount('#app');
+    </script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div id="app" class="container mx-auto px-4 py-8">
+        <!-- Win Animation -->
+        <div v-if="showWinAnimation" class="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+            <div class="relative">
+                <div class="absolute -inset-4">
+                    <div class="w-full h-full max-w-sm transform rotate-180 opacity-30">
+                        <div class="absolute inset-0">
+                            <div class="absolute -inset-4 bg-gradient-to-r from-yellow-400 to-yellow-600 blur-xl animate-pulse"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative text-6xl font-bold text-yellow-400 animate-bounce">
+                    ¡GANADOR!
+                </div>
+                <!-- Confetti effect -->
+                <div class="absolute -inset-20">
+                    <div class="absolute inset-0 animate-spin-slow">
+                        <div class="absolute top-0 left-1/2 w-2 h-2 bg-yellow-400 rounded-full transform -translate-x-1/2"></div>
+                        <div class="absolute top-0 left-1/2 w-2 h-2 bg-yellow-500 rounded-full transform -translate-x-1/2 rotate-45"></div>
+                        <div class="absolute top-0 left-1/2 w-2 h-2 bg-yellow-600 rounded-full transform -translate-x-1/2 rotate-90"></div>
+                        <div class="absolute top-0 left-1/2 w-2 h-2 bg-yellow-400 rounded-full transform -translate-x-1/2 rotate-135"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-white"></div>
+        </div>
+
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-4xl font-bold text-center mb-8">Ruleta Virtual de Casino</h1>
+            
+            <div class="bg-green-800 rounded-lg p-8 mb-8 relative overflow-hidden">
+                <div class="roulette-wheel relative w-64 h-64 mx-auto mb-8"
+                     :style="{ transform: `rotate(${wheelDeg}deg)`, transition: spinning ? 'transform 8s cubic-bezier(0.32, 0.64, 0.45, 1)' : 'none' }"
+                     :class="{ 'animate-pulse': spinning }">
+                    <div class="absolute inset-0 border-8 border-yellow-500 rounded-full"
+                         :class="{ 'animate-ping': spinning }"></div>
+                    <div class="absolute inset-0 border-8 border-yellow-500 rounded-full"
+                         :class="{ 'animate-ping': spinning }"></div>
+                    <!-- Simplified wheel representation -->
+                    <div class="absolute inset-0 flex items-center justify-center text-6xl font-bold text-yellow-400">
+                        {{ result !== null ? result : '?' }}
+                    </div>
+                    <div class="absolute inset-0 border-4 border-white opacity-20 rounded-full"
+                         :class="{ 'animate-spin': spinning }"></div>
+                    <div class="absolute inset-0 border-4 border-white opacity-20 rounded-full"
+                         :class="{ 'animate-spin': spinning }"></div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4 mb-8">
+                    <div class="col-span-2">
+                        <div class="grid grid-cols-6 gap-2">
+                            <!-- Numbers 1-36 organized by dozens -->
+                            <template v-for="row in 3">
+                                <button v-for="col in 12" :key="(row-1)*12 + col"
+                                    @click="placeBet((row-1)*12 + col)"
+                                    :class="[
+                                        'p-3 text-lg font-bold rounded',
+                                        selectedNumber === (row-1)*12 + col ? 'bg-yellow-500 text-black' : 'bg-red-800 hover:bg-red-700'
+                                    ]" :style="[2,4,6,7,8,10,11,13,15,17,19,20,22,24,26,28,29,31,33,35].includes((row-1)*12 + col) ? 'background-color: #1a1a1a' : ''">
+                                    {{ (row-1)*12 + col }}
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                    <div>
+                        <button @click="placeBet(0)"
+                                :class="[
+                                    'w-full p-4 text-xl font-bold rounded mb-2',
+                                    selectedNumber === 0 ? 'bg-yellow-500 text-black' : 'bg-green-700 hover:bg-green-600'
+                                ]">
+                            0
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-4 items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="flex flex-col gap-2">
+                            <input type="number" v-model.number="currentBet"
+                                   class="bg-gray-800 text-white px-4 py-2 rounded w-32"
+                                   min="0" :max="balance">
+                            <div class="flex gap-2">
+                                <button v-for="amount in [10, 20, 50, 100]" 
+                                        :key="amount"
+                                        @click="currentBet = amount"
+                                        :class="[
+                                            'px-4 py-2 rounded text-base hover:opacity-80',
+                                            amount === 10 ? 'bg-blue-600' : amount === 20 ? 'bg-green-600' : amount === 50 ? 'bg-purple-600' : 'bg-red-600'
+                                        ]"
+                                        :disabled="amount > balance">
+                                    ${{ amount }}
+                                </button>
+                            </div>
+                        </div>
+                        <button @click="spin"
+                                :disabled="spinning || currentBet <= 0 || currentBet > balance"
+                                class="bg-yellow-500 text-black px-6 py-2 rounded font-bold hover:bg-yellow-400 disabled:opacity-50 transition-all duration-300"
+                                :class="{ 'scale-95': spinning }">
+                            {{ spinning ? 'Girando...' : 'Girar' }}
+                        </button>
+                    </div>
+                    <div class="text-xl font-bold">
+                        Balance: ${{ balance }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center text-gray-400">
+                <p>Selecciona un número y coloca tu apuesta antes de girar la ruleta.</p>
+                <p>Gana 35 veces tu apuesta si aciertas el número exacto.</p>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
