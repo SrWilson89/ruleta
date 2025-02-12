@@ -20,11 +20,15 @@
                 const spinning = ref(false);
                 const wheelDeg = ref(0);
 
+                const blackNumbers = [2,4,6,7,8,10,11,13,15,17,19,20,22,24,26,28,29,31,33,35];
+
                 const placeBet = (number) => {
                     if (currentBet.value <= balance.value && !spinning.value) {
                         selectedNumber.value = number;
                     }
                 };
+
+                const isBlackNumber = (number) => blackNumbers.includes(number);
 
                 const spin = async () => {
                     if (!selectedNumber.value) {
@@ -35,7 +39,6 @@
                         spinning.value = true;
                         balance.value -= currentBet.value;
                         
-                        // Random result
                         const randomNumber = Math.floor(Math.random() * 37);
                         const newDegrees = wheelDeg.value + (360 * 5) + (randomNumber * (360/37));
                         wheelDeg.value = newDegrees;
@@ -44,7 +47,6 @@
                         
                         result.value = randomNumber;
                         
-                        // Check win
                         if (selectedNumber.value === randomNumber) {
                             balance.value += currentBet.value * 35;
                             showWinAnimation.value = true;
@@ -66,7 +68,8 @@
                     showWinAnimation,
                     wheelDeg,
                     placeBet,
-                    spin
+                    spin,
+                    isBlackNumber
                 };
             }
         }).mount('#app');
@@ -87,7 +90,6 @@
                 <div class="relative text-6xl font-bold text-yellow-400 animate-bounce">
                     ¡GANADOR!
                 </div>
-                <!-- Confetti effect -->
                 <div class="absolute -inset-20">
                     <div class="absolute inset-0 animate-spin-slow">
                         <div class="absolute top-0 left-1/2 w-2 h-2 bg-yellow-400 rounded-full transform -translate-x-1/2"></div>
@@ -114,14 +116,17 @@
                 <div class="grid grid-cols-3 gap-4 mb-8">
                     <div class="col-span-2">
                         <div class="grid grid-cols-6 gap-2">
-                            <!-- Numbers 1-36 organized by dozens -->
                             <template v-for="row in 3">
                                 <button v-for="col in 12" :key="(row-1)*12 + col"
                                     @click="placeBet((row-1)*12 + col)"
                                     :class="[
-                                        'p-3 text-lg font-bold rounded', 
-                                        [2,4,6,7,8,10,11,13,15,17,19,20,22,24,26,28,29,31,33,35].includes((row-1)*12 + col) ? 'bg-gray-900 hover:bg-gray-800' :
-                                        selectedNumber === (row-1)*12 + col ? 'bg-yellow-500 text-black' : 'bg-red-800 hover:bg-red-700'
+                                        'p-3 text-lg font-bold rounded transition-colors duration-200', 
+                                        {
+                                            'bg-gray-900 hover:bg-gray-700': isBlackNumber((row-1)*12 + col) && selectedNumber !== ((row-1)*12 + col),
+                                            'bg-red-800 hover:bg-red-700': !isBlackNumber((row-1)*12 + col) && selectedNumber !== ((row-1)*12 + col),
+                                            'bg-yellow-500 text-black': selectedNumber === ((row-1)*12 + col),
+                                            'ring-4 ring-white': isBlackNumber((row-1)*12 + col) && selectedNumber === ((row-1)*12 + col)
+                                        }
                                     ]">
                                     {{ (row-1)*12 + col }}
                                 </button>
